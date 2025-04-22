@@ -8,7 +8,6 @@
 - svelte
 - scripts
 - .git
-- static
 - **.pyc
 - .pytest_cache
 - .idea
@@ -17,6 +16,7 @@
 - README.md
 - .
 + src
++ static
 + main.py
 + requirements.txt
 + tool.py

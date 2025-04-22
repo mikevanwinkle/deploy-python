@@ -1,0 +1,8 @@
+version: "3"
+tasks:
+  build:
+    dir: "{{.USER_WORKING_DIR}}/../"
+    cmds:
+      - echo $pwd
+      - bash aws-lambda/scripts/layer.sh
+      - bash aws-lambda/scripts/build.sh

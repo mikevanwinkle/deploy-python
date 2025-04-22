@@ -1,0 +1,5 @@
+env                  = "dev"
+lambda_function_name = "demo-api-dev"
+region               = "us-west-1"
+domain_name          = "demo.docdock.io"
+hosted_zone_name     = "docdock.io"
