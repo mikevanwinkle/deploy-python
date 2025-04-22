@@ -1,0 +1,74 @@
+- name: Upgrade system
+  become: yes
+  apt: upgrade=dist update_cache=no
+
+- name: Install nginx
+  become: yes
+  apt: name=nginx state=latest
+
+- name: install letsencrypt
+  become: yes
+  apt: name=certbot state=latest
+  when: use_ssl
+
+- name: create letsencrypt directory
+  become: yes
+  file: name=/var/www/letsencrypt state=directory
+  when: use_ssl
+
+- name: Remove default nginx config
+  become: yes
+  file: name=/etc/nginx/sites-enabled/default state=absent
+
+- name: Install system nginx config
+  become: yes
+  template:
+    src: templates/nginx.j2
+    dest: /etc/nginx/nginx.conf
+    force: yes
+
+- name: Install nginx config for port 80
+  become: yes
+  template:
+    src: templates/nginx-http.j2
+    dest: /etc/nginx/sites-enabled/{{ service_host }}-80
+    force: yes
+
+- name: Reload nginx to activate letsencrypt site
+  become: yes
+  service: name=nginx state=restarted
+  when: use_ssl
+
+- name: Create letsencrypt certificate
+  become: yes
+  shell: certbot certonly -n --webroot -w /var/www/letsencrypt -m {{ letsencrypt_email }} --agree-tos -d {{ service_host }}
+  args:
+    creates: /etc/letsencrypt/live/{{ service_host }}
+  when: use_ssl
+
+- name: Generate dhparams
+  become: yes
+  shell: openssl dhparam -out /etc/nginx/dhparams.pem 2048
+  args:
+    creates: /etc/nginx/dhparams.pem
+
+- name: Install nginx site for specified site
+  become: yes
+  template:
+    src: templates/nginx-site.j2
+    dest: /etc/nginx/sites-enabled/{{ service_host }}-443
+    force: yes
+  when: use_ssl
+
+- name: Reload nginx to activate specified site
+  become: yes
+  service: name=nginx state=restarted
+  changed_when: false
+
+- name: Add letsencrypt cronjob for cert renewal
+  become: yes
+  cron:
+    name: letsencrypt_renewal
+    special_time: weekly
+    job: certbot --renew certonly -n --webroot -w /var/www/letsencrypt -m {{ letsencrypt_email }} --agree-tos -d {{ service_host }} && service nginx reload
+  when: use_ssl

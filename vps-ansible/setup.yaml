@@ -1,0 +1,16 @@
+- name: Server setup playbook
+  hosts: "{{ servers }}"
+  remote_user: "{{ ansible_user }}"
+  connection: local
+  become: true
+  gather_facts: yes
+  pre_tasks:
+    - include_vars: vars/default.yaml
+  tasks:
+    - include_tasks: tasks/setup.yaml
+
+  handlers:
+    - name: restart ssh
+      systemd:
+        name: ssh
+        state: restarted

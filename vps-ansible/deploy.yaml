@@ -1,0 +1,33 @@
+- name: Server setup playbook
+  hosts: "{{ servers }}"
+  remote_user: "{{ ansible_user }}"
+  connection: local
+  gather_facts: yes
+  pre_tasks:
+    - include_vars: vars/default.yaml
+
+  tasks:
+    - include_tasks: tasks/app.yaml
+      vars:
+        service_host: "{{ item.service_host }}"
+        service_name: "{{ item.service_name }}"
+        service_path: "{{ item.service_path }}"
+        service_upstream: "{{ item.service_upstream }}"
+        service_port: "{{ item.service_port }}"
+        use_ssl: "{{ item.use_ssl }}"
+      with_items: "{{ services }}"
+
+    - ansible.builtin.include_tasks: tasks/nginx.yaml
+      vars:
+        service_host: "{{ item.service_host }}"
+        service_name: "{{ item.service_name }}"
+        service_upstream: "{{ item.service_upstream }}"
+        service_port: "{{ item.service_port }}"
+        use_ssl: "{{ item.use_ssl }}"
+      with_items: "{{ services }}"
+
+  handlers:
+    - name: restart ssh
+      systemd:
+        name: ssh
+        state: restarted

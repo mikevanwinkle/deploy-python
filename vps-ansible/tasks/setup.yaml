@@ -1,0 +1,114 @@
+- name: Disable Root Login
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: "^PermitRootLogin no"
+    backrefs: yes
+    line: "PermitRootLogin no"
+    state: present
+    validate: grep "PermitRootLogin no" %s
+  notify:
+    - restart ssh
+
+- name: Disable Root Login (remove yes)
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    search_string: "PermitRootLogin yes"
+    line: "PermitRootLogin yes"
+    state: absent
+  notify:
+    - restart ssh
+
+- name: Setup passwordless sudo
+  lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: "^%sudo"
+    line: "%sudo ALL=(ALL) NOPASSWD: ALL"
+    validate: "/usr/sbin/visudo -cf %s"
+
+- name: Create a new regular user with sudo privileges
+  user:
+    name: "{{ service_user }}"
+    state: present
+    groups: sudo
+    append: true
+    create_home: true
+    shell: /bin/bash
+
+- name: Install aptitude
+  apt:
+    name: aptitude
+    state: latest
+    update_cache: true
+
+- name: Disable password authentication for root
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    state: present
+    regexp: "^#?PermitRootLogin"
+    line: "PermitRootLogin prohibit-password"
+
+- name: UFW - Allow SSH connections
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+
+- name: UFW - Enable and deny by default
+  community.general.ufw:
+    state: enabled
+    default: deny
+
+- name: Set authorized key for remote user
+  ansible.posix.authorized_key:
+    user: "{{ service_user }}"
+    state: present
+    key: "{{ item }}"
+  with_items: "{{ authorized_keys }}"
+
+# disables auto update and unattended upgrades
+- name: Disable unattended-upgrades service
+  ansible.builtin.systemd:
+    name: unattended-upgrades
+    state: stopped
+    enabled: false
+
+- name: Disable automatic upgrades in 20auto-upgrades
+  ansible.builtin.lineinfile:
+    path: /etc/apt/apt.conf.d/20auto-upgrades
+    regexp: "^APT::Periodic::Unattended-Upgrade"
+    line: 'APT::Periodic::Unattended-Upgrade "0";'
+    create: "yes"
+
+- name: Only root has 0
+  shell:
+    cmd: |
+      awk -F: '($3=="0"){print}' /etc/passwd
+  register: root_users
+  changed_when: False
+
+- name: "[Alert] More than one users with '0' priv"
+  fail:
+    msg: |
+      Found illegal user. `awk -F: '($3=="0"){print}' /etc/passwd` to identify
+  when: (root_users.stdout_lines | length) > 1
+
+- name: Allow all access to tcp port 80
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  with_items:
+    - "80"
+    - "443"
+
+- name: Install Deps
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - git
+    - curl
+    - htop
+    - rustc
+    - cargo
+    - wget

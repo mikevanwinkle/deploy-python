@@ -1,0 +1,98 @@
+- name: Service User
+  set_fact:
+    service_user: "{{ service_name }}-{{ env }}"
+
+- name: Create service user
+  become: true
+  ansible.builtin.user:
+    name: "{{ service_user }}"
+    state: present
+    groups: sudo
+    append: true
+    create_home: true
+    shell: /bin/bash
+
+- name: "Install uv"
+  become: true
+  shell:
+    cmd: |
+      which uv | wget -qO- https://astral.sh/uv/install.sh | sh
+      mv /root/.local/bin/uv /usr/local/bin/uv
+      chown ubuntu:sudo /usr/local/bin/uv
+  changed_when: False
+
+- name: do facts module to get latest information
+  setup:
+
+- name: "Ensure direcories"
+  become: true
+  ansible.builtin.file:
+    dest: "{{ item }}"
+    state: directory
+    owner: "{{ service_user }}"
+    group: "{{ service_user }}"
+    mode: 0755
+    recurse: true
+    force: false
+  changed_when: static.diff.after.path != static.diff.before.path
+  register: static
+  with_items:
+    - "/var/www/{{ service_host }}"
+    - "/var/www/{{ service_host }}/static"
+
+- name: Go to the folder and execute command
+  become: true
+  command: chdir=/var/www/{{ service_host }} ls
+  changed_when: False
+
+- name: Install python
+  become: true
+  become_user: "{{ service_user }}"
+  command: chdir=/var/www/{{ service_host }} uv python install {{ python_version }}
+  changed_when: False
+
+- name: Copy project
+  become: true
+  ansible.posix.synchronize:
+    src: "{{ service_path }}/"
+    dest: "/var/www/{{ service_host }}/"
+    archive: true
+    compress: true
+    recursive: true
+    checksum: true
+  changed_when: false
+
+- name: Ensure perms
+  become: true
+  file:
+    path: /var/www/{{ service_host }}
+    owner: "{{ service_user }}"
+    group: "{{ service_user }}"
+    state: directory
+    recurse: yes
+  changed_when: false
+
+- name: Install project deps
+  become: true
+  become_user: "{{ service_user }}"
+  command: chdir=/var/www/{{ service_host }} uv sync -q
+  changed_when: (install.stderr_lines | length) > 0
+  register: install
+
+- name: Configure systemd
+  become: true
+  ansible.builtin.template:
+    src: templates/service.j2
+    dest: /etc/systemd/system/{{ service_name }}.service
+    owner: root
+    group: root
+    force: true
+
+- name: Reload systemctl
+  become: true
+  ansible.builtin.systemd_service:
+    state: restarted
+    service: "{{ service_name }}"
+    daemon_reload: true
+    enabled: true
+  changed_when: false

@@ -1,0 +1,9 @@
+version: 3
+env:
+  VERSION: v7
+tasks:
+  build:
+    - aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 307946653835.dkr.ecr.us-east-2.amazonaws.com
+    - docker build -t pytest:${VERSION} --platform=linux/amd64  .
+    - docker tag pytest:${VERSION} 307946653835.dkr.ecr.us-east-2.amazonaws.com/pytest:${VERSION}
+    - docker push 307946653835.dkr.ecr.us-east-2.amazonaws.com/pytest:${VERSION}

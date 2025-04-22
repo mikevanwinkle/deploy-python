@@ -1,0 +1,19 @@
+[Unit]
+Description={{ service_name }}
+ConditionPathExists=/var/www/{{ service_host }}
+After=network.target
+[Service]
+Type=simple
+User={{ service_user }}
+Group={{ service_user }}
+WorkingDirectory=/var/www/{{ service_host }}
+Environment=APP_ENV={{ env }}
+ExecStart=/var/www/{{ service_host }}/.venv/bin/uvicorn main:app --workers 4 --loop uvloop --port {{ service_port }}
+Restart=on-failure
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier={{ service_name }}
+
+[Install]
+WantedBy=multi-user.target
