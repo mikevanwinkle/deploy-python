@@ -15,3 +15,7 @@ Security Recommendations
 Additional Resurouces
 * [Nginx Valian Auto SSL](https://github.com/Valian/docker-nginx-auto-ssl/blob/master/README.md) If you are using docker on your vps to deploy, you can use this container to very quickly add ssl to your service
 * [Zero-Downtime Deployment with Docker Compose](https://www.maxcountryman.com/articles/zero-downtime-deployments-with-docker-compose). This is a great article about zero downtime using docker compose 
+
+## Serverless Resources
+
+* [Terraform Lambda Example](https://github.com/mikevanwinkle/deploy-python/tree/main/aws-lambda)
